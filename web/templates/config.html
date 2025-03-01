@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - NHL MySQL Sync{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Configuration</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Application Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('config_page') }}">
+                    {{ form.csrf_token }}
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Database Configuration</h5>
+                            <hr>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="db_host" class="form-label">{{ form.db_host.label }}</label>
+                            {{ form.db_host(class="form-control") }}
+                            {% if form.db_host.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.db_host.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="db_port" class="form-label">{{ form.db_port.label }}</label>
+                            {{ form.db_port(class="form-control") }}
+                            {% if form.db_port.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.db_port.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="db_name" class="form-label">{{ form.db_name.label }}</label>
+                            {{ form.db_name(class="form-control") }}
+                            {% if form.db_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.db_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="db_user" class="form-label">{{ form.db_user.label }}</label>
+                            {{ form.db_user(class="form-control") }}
+                            {% if form.db_user.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.db_user.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="db_password" class="form-label">{{ form.db_password.label }}</label>
+                            {{ form.db_password(class="form-control") }}
+                            {% if form.db_password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.db_password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <button type="button" id="test-connection" class="btn btn-outline-primary">
+                                <i class="bi bi-database-check"></i> Test Connection
+                            </button>
+                            <button type="button" id="init-database" class="btn btn-outline-warning ms-2">
+                                <i class="bi bi-database-add"></i> Initialize Database Schema
+                            </button>
+                            <span id="connection-status" class="ms-2"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>API Configuration</h5>
+                            <hr>
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="api_url" class="form-label">{{ form.api_url.label }}</label>
+                            {{ form.api_url(class="form-control") }}
+                            {% if form.api_url.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.api_url.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Refresh Intervals</h5>
+                            <hr>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="teams_interval" class="form-label">{{ form.teams_interval.label }}</label>
+                            {{ form.teams_interval(class="form-control") }}
+                            {% if form.teams_interval.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.teams_interval.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="players_interval" class="form-label">{{ form.players_interval.label }}</label>
+                            {{ form.players_interval(class="form-control") }}
+                            {% if form.players_interval.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.players_interval.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="games_interval" class="form-label">{{ form.games_interval.label }}</label>
+                            {{ form.games_interval(class="form-control") }}
+                            {% if form.games_interval.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.games_interval.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="stats_interval" class="form-label">{{ form.stats_interval.label }}</label>
+                            {{ form.stats_interval(class="form-control") }}
+                            {% if form.stats_interval.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.stats_interval.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Test database connection
+        document.getElementById('test-connection').addEventListener('click', function() {
+            const statusSpan = document.getElementById('connection-status');
+            statusSpan.innerHTML = '<span class="text-info"><i class="bi bi-hourglass-split"></i> Testing connection...</span>';
+            
+            // Get form values
+            const host = document.getElementById('db_host').value;
+            const port = document.getElementById('db_port').value;
+            const user = document.getElementById('db_user').value;
+            const password = document.getElementById('db_password').value;
+            const database = document.getElementById('db_name').value;
+            
+            // Create a temporary form to submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/config';
+            form.style.display = 'none';
+            
+            // Add CSRF token
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            // Add form fields
+            const fields = {
+                'db_host': host,
+                'db_port': port,
+                'db_user': user,
+                'db_password': password,
+                'db_name': database,
+                'api_url': document.getElementById('api_url').value,
+                'teams_interval': document.getElementById('teams_interval').value,
+                'players_interval': document.getElementById('players_interval').value,
+                'games_interval': document.getElementById('games_interval').value,
+                'stats_interval': document.getElementById('stats_interval').value,
+                'test_connection': 'true'
+            };
+            
+            for (const [name, value] of Object.entries(fields)) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        });
+        
+        // Initialize database schema
+        document.getElementById('init-database').addEventListener('click', function() {
+            if (!confirm('This will initialize the database schema. Any existing tables will be kept, but this may take a moment. Continue?')) {
+                return;
+            }
+            
+            const statusSpan = document.getElementById('connection-status');
+            statusSpan.innerHTML = '<span class="text-info"><i class="bi bi-hourglass-split"></i> Initializing database schema...</span>';
+            
+            fetch('/api/db/init', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusSpan.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> ' + data.message + '</span>';
+                } else {
+                    statusSpan.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ' + data.message + '</span>';
+                }
+            })
+            .catch(error => {
+                statusSpan.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error: ' + error.message + '</span>';
+            });
+        });
+    });
+</script>
+{% endblock %}

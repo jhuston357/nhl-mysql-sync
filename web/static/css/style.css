@@ -1,0 +1,57 @@
+/* Main styles for NHL MySQL Sync web interface */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.3s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    font-weight: 500;
+}
+
+.log-container {
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-family: monospace;
+}
+
+.log-entry {
+    margin-bottom: 0.25rem;
+    padding: 0.25rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.log-time {
+    color: #6c757d;
+    margin-right: 0.5rem;
+}
+
+.log-info .log-message {
+    color: #0d6efd;
+}
+
+.log-warning .log-message {
+    color: #fd7e14;
+}
+
+.log-error .log-message {
+    color: #dc3545;
+}

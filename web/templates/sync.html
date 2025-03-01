@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Synchronization - NHL MySQL Sync{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Data Synchronization</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Start Sync</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('sync_page') }}">
+                    {{ form.csrf_token }}
+                    
+                    <div class="mb-3">
+                        <label for="data_type" class="form-label">{{ form.data_type.label }}</label>
+                        {{ form.data_type(class="form-select") }}
+                        {% if form.data_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.data_type.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="season" class="form-label">{{ form.season.label }}</label>
+                        {{ form.season(class="form-control", placeholder="e.g., 20222023") }}
+                        <div class="form-text">Leave blank to use current season</div>
+                        {% if form.season.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.season.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary", id="start-sync-btn") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-7">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">Sync Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="sync-status-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Current Status:</h6>
+                        <span id="current-status" class="badge bg-secondary">Idle</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Current Task:</label>
+                        <div id="current-task">None</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Progress:</label>
+                        <div class="progress">
+                            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Last Run:</label>
+                        <div id="last-run">Never</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Sync Results:</label>
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Teams Updated:</span>
+                                    <span id="teams-updated">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Players Updated:</span>
+                                    <span id="players-updated">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Games Updated:</span>
+                                    <span id="games-updated">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Stats Updated:</span>
+                                    <span id="stats-updated">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button id="cancel-sync-btn" class="btn btn-danger" disabled>
+                            <i class="bi bi-x-circle"></i> Cancel Sync
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="card-title mb-0">Sync Log</h5>
+            </div>
+            <div class="card-body">
+                <div id="log-container" class="log-container">
+                    <div class="text-center text-muted">
+                        <i>No log entries yet</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const startSyncBtn = document.getElementById('start-sync-btn');
+        const cancelSyncBtn = document.getElementById('cancel-sync-btn');
+        
+        // Load initial sync status
+        fetch('/api/sync/status')
+            .then(response => response.json())
+            .then(data => updateSyncStatus(data));
+            
+        // Connect to Socket.IO for real-time updates
+        const socket = io();
+        
+        socket.on('sync_update', function(data) {
+            updateSyncStatus(data);
+        });
+        
+        socket.on('log_message', function(data) {
+            addLogMessage(data);
+        });
+        
+        // Cancel sync button
+        cancelSyncBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to cancel the current sync operation?')) {
+                fetch('/api/sync/cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogMessage({
+                            level: 'warning',
+                            message: 'Sync operation cancelled by user'
+                        });
+                    }
+                });
+            }
+        });
+    });
+    
+    function updateSyncStatus(data) {
+        // Update status badge
+        const statusBadge = document.getElementById('current-status');
+        const startSyncBtn = document.getElementById('start-sync-btn');
+        const cancelSyncBtn = document.getElementById('cancel-sync-btn');
+        
+        if (data.is_running) {
+            statusBadge.textContent = 'Running';
+            statusBadge.className = 'badge bg-success';
+            startSyncBtn.disabled = true;
+            cancelSyncBtn.disabled = false;
+        } else {
+            statusBadge.textContent = 'Idle';
+            statusBadge.className = 'badge bg-secondary';
+            startSyncBtn.disabled = false;
+            cancelSyncBtn.disabled = true;
+        }
+        
+        // Update current task
+        document.getElementById('current-task').textContent = data.current_task || 'None';
+        
+        // Update progress bar
+        const progressBar = document.getElementById('progress-bar');
+        progressBar.style.width = `${data.progress}%`;
+        progressBar.textContent = `${data.progress}%`;
+        progressBar.setAttribute('aria-valuenow', data.progress);
+        
+        // Update last run time
+        document.getElementById('last-run').textContent = data.last_run || 'Never';
+        
+        // Update stats
+        document.getElementById('teams-updated').textContent = data.stats?.teams_updated || 0;
+        document.getElementById('players-updated').textContent = data.stats?.players_updated || 0;
+        document.getElementById('games-updated').textContent = data.stats?.games_updated || 0;
+        document.getElementById('stats-updated').textContent = data.stats?.stats_updated || 0;
+    }
+    
+    function addLogMessage(data) {
+        const logContainer = document.getElementById('log-container');
+        
+        // Clear the "No log entries yet" message if it exists
+        if (logContainer.querySelector('.text-muted')) {
+            logContainer.innerHTML = '';
+        }
+        
+        // Create log entry
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-${data.level}`;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span> <span class="log-message">${data.message}</span>`;
+        
+        // Add to container (at the top)
+        logContainer.insertBefore(logEntry, logContainer.firstChild);
+        
+        // Limit to 100 entries
+        const entries = logContainer.querySelectorAll('.log-entry');
+        if (entries.length > 100) {
+            logContainer.removeChild(entries[entries.length - 1]);
+        }
+    }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-container {
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.5rem;
+        font-family: monospace;
+    }
+    
+    .log-entry {
+        margin-bottom: 0.25rem;
+        padding: 0.25rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .log-time {
+        color: #6c757d;
+        margin-right: 0.5rem;
+    }
+    
+    .log-info .log-message {
+        color: #0d6efd;
+    }
+    
+    .log-warning .log-message {
+        color: #fd7e14;
+    }
+    
+    .log-error .log-message {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}

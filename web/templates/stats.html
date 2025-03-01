@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - NHL MySQL Sync{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Database Statistics</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Record Counts</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Data Type</th>
+                                <th class="text-end">Count</th>
+                                <th class="text-end">Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Teams</td>
+                                <td class="text-end" id="teams-count-value">{{ db_stats.teams|default(0) }}</td>
+                                <td class="text-end">{{ db_stats.teams_updated|default('Never') }}</td>
+                            </tr>
+                            <tr>
+                                <td>Players</td>
+                                <td class="text-end" id="players-count-value">{{ db_stats.players|default(0) }}</td>
+                                <td class="text-end">{{ db_stats.players_updated|default('Never') }}</td>
+                            </tr>
+                            <tr>
+                                <td>Games</td>
+                                <td class="text-end" id="games-count-value">{{ db_stats.games|default(0) }}</td>
+                                <td class="text-end">{{ db_stats.games_updated|default('Never') }}</td>
+                            </tr>
+                            <tr>
+                                <td>Player Stats</td>
+                                <td class="text-end" id="player-stats-count-value">{{ db_stats.player_stats|default(0) }}</td>
+                                <td class="text-end">{{ db_stats.player_stats_updated|default('Never') }}</td>
+                            </tr>
+                            <tr>
+                                <td>Goalie Stats</td>
+                                <td class="text-end" id="goalie-stats-count-value">{{ db_stats.goalie_stats|default(0) }}</td>
+                                <td class="text-end">{{ db_stats.goalie_stats_updated|default('Never') }}</td>
+                            </tr>
+                            <tr class="table-primary">
+                                <td><strong>Total Stats Records</strong></td>
+                                <td class="text-end" id="stats-count-value"><strong>{{ (db_stats.player_stats|default(0) + db_stats.goalie_stats|default(0)) }}</strong></td>
+                                <td class="text-end">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">Sync History</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6>Last Sync Run:</h6>
+                    <p id="last-sync-time" class="mb-0">{{ sync_status.last_run|default('Never') }}</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h6>Last Sync Results:</h6>
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Teams Updated:</span>
+                                <span id="teams-updated">{{ sync_status.stats.teams_updated|default(0) }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Players Updated:</span>
+                                <span id="players-updated">{{ sync_status.stats.players_updated|default(0) }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Games Updated:</span>
+                                <span id="games-updated">{{ sync_status.stats.games_updated|default(0) }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Stats Updated:</span>
+                                <span id="stats-updated">{{ sync_status.stats.stats_updated|default(0) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('sync_page') }}" class="btn btn-success">
+                        <i class="bi bi-arrow-repeat"></i> Go to Sync Page
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">Data Visualization</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <h6>Record Distribution</h6>
+                        <canvas id="record-distribution-chart"></canvas>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <h6>Data Growth Over Time</h6>
+                        <p class="text-muted">Coming soon in a future update</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect to Socket.IO for real-time updates
+        const socket = io();
+        
+        socket.on('sync_update', function(data) {
+            // Update last sync time
+            document.getElementById('last-sync-time').textContent = data.last_run || 'Never';
+            
+            // Update sync results
+            document.getElementById('teams-updated').textContent = data.stats?.teams_updated || 0;
+            document.getElementById('players-updated').textContent = data.stats?.players_updated || 0;
+            document.getElementById('games-updated').textContent = data.stats?.games_updated || 0;
+            document.getElementById('stats-updated').textContent = data.stats?.stats_updated || 0;
+        });
+        
+        // Create record distribution chart
+        const teamsCount = parseInt(document.getElementById('teams-count-value').textContent) || 0;
+        const playersCount = parseInt(document.getElementById('players-count-value').textContent) || 0;
+        const gamesCount = parseInt(document.getElementById('games-count-value').textContent) || 0;
+        const playerStatsCount = parseInt(document.getElementById('player-stats-count-value').textContent) || 0;
+        const goalieStatsCount = parseInt(document.getElementById('goalie-stats-count-value').textContent) || 0;
+        
+        const ctx = document.getElementById('record-distribution-chart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Teams', 'Players', 'Games', 'Player Stats', 'Goalie Stats'],
+                datasets: [{
+                    data: [teamsCount, playersCount, gamesCount, playerStatsCount, goalieStatsCount],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

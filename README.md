@@ -13,6 +13,7 @@ This application fetches data from the NHL API and stores it in a MySQL database
 - Synchronize database with the latest NHL data
 - Configurable data refresh intervals
 - Support for historical and current season data
+- Web-based GUI for configuration, manual sync, and monitoring
 
 ## Requirements
 
@@ -33,19 +34,69 @@ This application fetches data from the NHL API and stores it in a MySQL database
    pip install -r requirements.txt
    ```
 
-3. Configure your database settings in `config.py`
+3. Configure your database settings in `config.py` or through the web interface
 
 ## Usage
+
+### Command Line Interface
 
 Basic usage:
 ```
 python nhl_sync.py
 ```
 
+Initialize database schema:
+```
+python nhl_sync.py --init
+```
+
+Sync specific data:
+```
+python nhl_sync.py --sync teams
+python nhl_sync.py --sync players
+python nhl_sync.py --sync games --season 20222023
+```
+
+Run as a daemon with scheduled updates:
+```
+python nhl_sync.py --daemon
+```
+
 For more options:
 ```
 python nhl_sync.py --help
 ```
+
+### Web Interface
+
+Start the web interface:
+```
+python nhl_sync.py --web
+```
+
+Or run the web server directly:
+```
+python web_server.py
+```
+
+The web interface will be available at http://localhost:7443 by default.
+
+You can specify a different port:
+```
+python nhl_sync.py --web --port 8080
+```
+
+Run with both web interface and daemon mode:
+```
+python nhl_sync.py --web --daemon
+```
+
+## Web Interface Features
+
+- **Dashboard**: Overview of sync status and database statistics
+- **Configuration**: Update database and API settings
+- **Sync**: Manually trigger synchronization with progress tracking
+- **Statistics**: View detailed database statistics and visualizations
 
 ## License
 
