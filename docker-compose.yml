@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  nhl-mysql-sync:
+    build: .
+    ports:
+      - "7443:7443"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=nhl_user
+      - DB_PASSWORD=nhl_password
+      - DB_NAME=nhl_data
+      - DB_PORT=3306
+      - INIT_DB=true
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=nhl_data
+      - MYSQL_USER=nhl_user
+      - MYSQL_PASSWORD=nhl_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument('--season', type=str, help='Specify season (format: YYYYYYYY, e.g., 20222023)')
     parser.add_argument('--daemon', action='store_true', help='Run as a daemon with scheduled updates')
     parser.add_argument('--web', action='store_true', help='Start the web interface')
-    parser.add_argument('--port', type=int, default=54704, help='Port for the web interface (default: 54704)')
+    parser.add_argument('--port', type=int, default=7443, help='Port for the web interface (default: 7443)')
     return parser.parse_args()
 
 def start_web_server(port):

@@ -14,8 +14,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='NHL MySQL Sync Web Server')
     parser.add_argument('--host', type=str, default='0.0.0.0',
                         help='Host to bind the server to (default: 0.0.0.0)')
-    parser.add_argument('--port', type=int, default=54704,
-                        help='Port to bind the server to (default: 54704)')
+    parser.add_argument('--port', type=int, default=7443,
+                        help='Port to bind the server to (default: 7443)')
     parser.add_argument('--debug', action='store_true',
                         help='Run in debug mode')
     return parser.parse_args()
