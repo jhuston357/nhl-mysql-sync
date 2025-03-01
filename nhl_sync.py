@@ -44,17 +44,16 @@ def parse_args():
 
 def start_web_server(port):
     """Start the web interface in a separate thread."""
-    from web_server import main as web_main
+    import sys
+    import threading
+    import subprocess
     
-    # Create a thread for the web server
-    web_thread = threading.Thread(
-        target=lambda: sys.argv.extend(['--port', str(port)]) or web_main(),
-        daemon=True
-    )
-    web_thread.start()
+    # Start the web server as a separate process
+    cmd = [sys.executable, 'web_server.py', '--port', str(port), '--host', '0.0.0.0']
+    web_process = subprocess.Popen(cmd)
     
     print(f"Web interface started on http://localhost:{port}")
-    return web_thread
+    return web_process
 
 def main():
     """Main application entry point."""

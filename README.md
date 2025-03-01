@@ -102,6 +102,44 @@ python nhl_sync.py --web --daemon
 
 MIT
 
+## Docker Deployment
+
+You can easily deploy this application using Docker:
+
+### Using Docker Compose (Recommended)
+
+1. Clone the repository and navigate to the project directory:
+   ```
+   git clone https://github.com/jhuston357/nhl-mysql-sync.git
+   cd nhl-mysql-sync
+   ```
+
+2. Start the application with Docker Compose:
+   ```
+   docker-compose up -d
+   ```
+
+3. Access the web interface at http://localhost:7443
+
+### Using Docker Directly
+
+1. Build the Docker image:
+   ```
+   docker build -t nhl-mysql-sync .
+   ```
+
+2. Run the container:
+   ```
+   docker run -d -p 7443:7443 \
+     -e DB_HOST=your-mysql-host \
+     -e DB_USER=your-mysql-user \
+     -e DB_PASSWORD=your-mysql-password \
+     -e DB_NAME=nhl_data \
+     nhl-mysql-sync
+   ```
+
+3. Access the web interface at http://localhost:7443
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

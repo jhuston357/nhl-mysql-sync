@@ -48,7 +48,9 @@ def main():
     print(f"NHL MySQL Sync Web Server starting on http://{args.host}:{args.port}")
     print("Press Ctrl+C to stop the server")
     
-    # Start the server
+    # Start the server with CORS support
+    from flask_cors import CORS
+    CORS(app)
     socketio.run(app, host=args.host, port=args.port, debug=args.debug, allow_unsafe_werkzeug=True)
 
 if __name__ == "__main__":
