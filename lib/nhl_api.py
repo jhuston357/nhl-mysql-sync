@@ -24,7 +24,21 @@ class NHLApiClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Error making request to {url}: {e}")
-            raise
+            # Return empty data structure instead of raising exception
+            if 'teams' in endpoint:
+                return {'teams': []}
+            elif 'people' in endpoint:
+                return {'people': []}
+            elif 'schedule' in endpoint:
+                return {'dates': []}
+            elif 'game' in endpoint and 'boxscore' in endpoint:
+                return {'teams': {'home': {'players': {}}, 'away': {'players': {}}}}
+            elif 'game' in endpoint:
+                return {'gameData': {'teams': {'home': {}, 'away': {}}}, 'liveData': {'boxscore': {'teams': {'home': {'players': {}}, 'away': {'players': {}}}}}}
+            elif 'stats' in endpoint:
+                return {'stats': []}
+            else:
+                return {}
     
     def get_teams(self):
         """Get all NHL teams."""

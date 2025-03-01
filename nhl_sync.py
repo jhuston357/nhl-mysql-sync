@@ -39,22 +39,21 @@ def parse_args():
     parser.add_argument('--season', type=str, help='Specify season (format: YYYYYYYY, e.g., 20222023)')
     parser.add_argument('--daemon', action='store_true', help='Run as a daemon with scheduled updates')
     parser.add_argument('--web', action='store_true', help='Start the web interface')
-    parser.add_argument('--port', type=int, default=7443, help='Port for the web interface (default: 7443)')
+    parser.add_argument('--port', type=int, default=54704, help='Port for the web interface (default: 54704)')
     return parser.parse_args()
 
 def start_web_server(port):
     """Start the web interface in a separate thread."""
-    from web_server import main as web_main
+    import sys
+    import threading
+    import subprocess
     
-    # Create a thread for the web server
-    web_thread = threading.Thread(
-        target=lambda: sys.argv.extend(['--port', str(port)]) or web_main(),
-        daemon=True
-    )
-    web_thread.start()
+    # Start the web server as a separate process
+    cmd = [sys.executable, 'web_server.py', '--port', str(port), '--host', '0.0.0.0']
+    web_process = subprocess.Popen(cmd)
     
     print(f"Web interface started on http://localhost:{port}")
-    return web_thread
+    return web_process
 
 def main():
     """Main application entry point."""
