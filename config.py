@@ -14,7 +14,7 @@ DB_CONFIG = {
 }
 
 # NHL API configuration
-NHL_API_BASE_URL = 'https://statsapi.web.nhl.com/api/v1'
+NHL_API_BASE_URL = 'https://api-web.nhle.com/v1'
 
 # Data refresh settings (in seconds)
 REFRESH_INTERVALS = {
