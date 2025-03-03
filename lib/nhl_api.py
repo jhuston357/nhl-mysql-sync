@@ -96,62 +96,50 @@ class NHLApiClient:
             if isinstance(data, dict) and 'standings' in data:
                 # Process each division to extract teams
                 for division in data.get('standings', []):
-                    self.logger.debug(f"Processing division: {division.get('name', 'Unknown')}")
+                    self.logger.debug(f"Processing division: {division.get('divisionName', 'Unknown')}")
                     
-                    # Check if teamRecords exists and is a list
-                    team_records = division.get('teamRecords', [])
-                    if not isinstance(team_records, list):
-                        self.logger.error(f"teamRecords is not a list: {team_records}")
-                        continue
+                    # Get team data directly from the standings entry
+                    team_name = division.get('teamName', {}).get('default', '')
+                    team_abbrev = division.get('teamAbbrev', {}).get('default', '')
+                    team_id = None
                     
-                    for team_data in team_records:
-                        if not isinstance(team_data, dict):
-                            self.logger.error(f"team_data is not a dict: {team_data}")
-                            continue
-                            
-                        self.logger.debug(f"Processing team data: {team_data.keys() if isinstance(team_data, dict) else 'Not a dict'}")
-                        
-                        # Check if team exists and is a dict
-                        team = team_data.get('team', {})
-                        if not isinstance(team, dict):
-                            self.logger.error(f"team is not a dict: {team}")
-                            continue
-                            
-                        self.logger.debug(f"Team info: {team}")
-                        
+                    # Try to extract team ID from various fields
+                    if 'id' in division:
+                        team_id = division.get('id')
+                    
+                    # If we couldn't find an ID, generate one based on the team abbreviation
+                    if not team_id and team_abbrev:
+                        # Use a simple hash of the team abbreviation as the ID
+                        team_id = hash(team_abbrev) % 1000 + 1000  # Ensure positive and unique
+                    
+                    if team_id and team_abbrev and team_name:
                         # Map team ID to team code for future use
-                        team_id = team.get('id')
-                        team_code = team.get('abbrev')
-                        self.logger.debug(f"Team ID: {team_id}, Team Code: {team_code}")
-                        
-                        if team_id and team_code:
-                            self.team_id_to_code[team_id] = team_code
-                            self.team_code_to_id[team_code] = team_id
+                        self.team_id_to_code[team_id] = team_abbrev
+                        self.team_code_to_id[team_abbrev] = team_id
                         
                         # Create team object in the format expected by the sync manager
-                        team_name = team.get('name', '')
                         team_obj = {
-                            'id': team.get('id'),
+                            'id': team_id,
                             'name': team_name,
-                            'abbreviation': team.get('abbrev'),
+                            'abbreviation': team_abbrev,
                             'teamName': team_name.split()[-1] if team_name else '',
                             'locationName': ' '.join(team_name.split()[:-1]) if team_name else '',
                             'division': {
-                                'id': division.get('id'),
-                                'name': division.get('name')
+                                'id': division.get('divisionId'),
+                                'name': division.get('divisionName')
                             },
                             'conference': {
-                                'id': division.get('conference', {}).get('id') if isinstance(division.get('conference'), dict) else None,
-                                'name': division.get('conference', {}).get('name') if isinstance(division.get('conference'), dict) else None
+                                'id': division.get('conferenceId'),
+                                'name': division.get('conferenceName')
                             },
                             'active': True  # Assuming all teams in standings are active
                         }
                         teams.append(team_obj)
-            else:
-                self.logger.error(f"Unexpected API response format: {data}")
-                
-                # If we can't get teams from the API, use a hardcoded list of teams
-                self.logger.warning("Using hardcoded team list as fallback")
+            
+            # If we couldn't extract teams from the API response or didn't get enough teams,
+            # use a hardcoded list of teams as a fallback
+            if len(teams) < 30:
+                self.logger.warning(f"Only found {len(teams)} teams in API response, using hardcoded list as fallback")
                 hardcoded_teams = [
                     {'id': 1, 'abbrev': 'NJD', 'name': 'New Jersey Devils'},
                     {'id': 2, 'abbrev': 'NYI', 'name': 'New York Islanders'},
@@ -188,6 +176,8 @@ class NHLApiClient:
                     {'id': 56, 'abbrev': 'UTA', 'name': 'Utah Hockey Club'}
                 ]
                 
+                teams = []  # Reset teams list to use only hardcoded teams
+                
                 for team in hardcoded_teams:
                     team_id = team['id']
                     team_code = team['abbrev']
@@ -218,9 +208,9 @@ class NHLApiClient:
         except Exception as e:
             self.logger.error(f"Error processing teams data: {e}", exc_info=True)
             # Return empty teams list to avoid further errors
-            return {'teams': []}
+            return []
         
-        return {'teams': teams}
+        return teams
     
     def get_team(self, team_id):
         """Get a specific NHL team."""

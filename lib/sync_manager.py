@@ -23,22 +23,45 @@ class SyncManager:
         # Fetch teams from API
         teams_data = self.api.get_teams()
         
+        # Check if teams_data is a dictionary with 'teams' key (old API format)
+        if isinstance(teams_data, dict) and 'teams' in teams_data:
+            teams_data = teams_data.get('teams', [])
+        
         # Transform data for database
         teams_to_insert = []
         for team in teams_data:
-            team_record = {
-                'id': team['id'],
-                'name': team['name'],
-                'abbreviation': team['abbreviation'],
-                'team_name': team['teamName'],
-                'location_name': team['locationName'],
-                'division_id': team['division']['id'] if 'division' in team else None,
-                'division_name': team['division']['name'] if 'division' in team else None,
-                'conference_id': team['conference']['id'] if 'conference' in team else None,
-                'conference_name': team['conference']['name'] if 'conference' in team else None,
-                'active': team['active']
-            }
-            teams_to_insert.append(team_record)
+            # Ensure team is a dictionary
+            if not isinstance(team, dict):
+                self.logger.error(f"Team data is not a dictionary: {team}")
+                continue
+                
+            # Log team data for debugging
+            self.logger.debug(f"Processing team: {team}")
+            
+            # Extract team data with proper error handling
+            try:
+                team_record = {
+                    'id': team.get('id'),
+                    'name': team.get('name', ''),
+                    'abbreviation': team.get('abbreviation', ''),
+                    'team_name': team.get('teamName', ''),
+                    'location_name': team.get('locationName', ''),
+                    'division_id': team.get('division', {}).get('id') if isinstance(team.get('division'), dict) else None,
+                    'division_name': team.get('division', {}).get('name') if isinstance(team.get('division'), dict) else None,
+                    'conference_id': team.get('conference', {}).get('id') if isinstance(team.get('conference'), dict) else None,
+                    'conference_name': team.get('conference', {}).get('name') if isinstance(team.get('conference'), dict) else None,
+                    'active': team.get('active', True)
+                }
+                
+                # Validate required fields
+                if team_record['id'] is None:
+                    self.logger.error(f"Team is missing required 'id' field: {team}")
+                    continue
+                    
+                teams_to_insert.append(team_record)
+            except Exception as e:
+                self.logger.error(f"Error processing team data: {e}", exc_info=True)
+                continue
         
         # Insert or update in database
         if teams_to_insert:
