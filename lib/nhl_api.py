@@ -31,11 +31,40 @@ class NHLApiClient:
         try:
             response = requests.get(url, params=params, timeout=30)
             response.raise_for_status()
-            return response.json()
+            
+            # Get the JSON response
+            json_data = response.json()
+            
+            # Log the response for debugging
+            self.logger.debug(f"API Response from {url}: {json_data}")
+            
+            # Check if the response is a dictionary
+            if not isinstance(json_data, dict) and not isinstance(json_data, list):
+                self.logger.error(f"Unexpected response type from {url}: {type(json_data)}")
+                # Return appropriate empty structure
+                if 'standings' in endpoint:
+                    return {'standings': []}
+                elif 'team' in endpoint or 'club-stats' in endpoint:
+                    return {'teams': []}
+                elif 'player' in endpoint:
+                    return {'players': []}
+                elif 'schedule' in endpoint:
+                    return {'gameWeek': []}
+                elif 'gamecenter' in endpoint and 'boxscore' in endpoint:
+                    return {'boxscore': {'teamStats': {}, 'playerByGameStats': {'homeTeam': [], 'awayTeam': []}}}
+                elif 'gamecenter' in endpoint:
+                    return {'awayTeam': {}, 'homeTeam': {}, 'summary': {'scoring': []}}
+                else:
+                    return {}
+            
+            return json_data
+            
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Error making request to {url}: {e}")
             # Return empty data structure instead of raising exception
-            if 'team' in endpoint or 'club-stats' in endpoint:
+            if 'standings' in endpoint:
+                return {'standings': []}
+            elif 'team' in endpoint or 'club-stats' in endpoint:
                 return {'teams': []}
             elif 'player' in endpoint:
                 return {'players': []}
@@ -55,38 +84,141 @@ class NHLApiClient:
         # We'll use the standings endpoint which includes all teams
         data = self._make_request('standings/now')
         
+        # Debug log the response structure
+        self.logger.debug(f"API Response structure: {type(data)}")
+        if isinstance(data, dict):
+            self.logger.debug(f"API Response keys: {data.keys()}")
+        
         teams = []
-        if 'standings' in data:
-            # Process each division to extract teams
-            for division in data.get('standings', []):
-                for team_data in division.get('teamRecords', []):
-                    team = team_data.get('team', {})
+        
+        # Handle the case where the API response structure is different than expected
+        try:
+            if isinstance(data, dict) and 'standings' in data:
+                # Process each division to extract teams
+                for division in data.get('standings', []):
+                    self.logger.debug(f"Processing division: {division.get('name', 'Unknown')}")
+                    
+                    # Check if teamRecords exists and is a list
+                    team_records = division.get('teamRecords', [])
+                    if not isinstance(team_records, list):
+                        self.logger.error(f"teamRecords is not a list: {team_records}")
+                        continue
+                    
+                    for team_data in team_records:
+                        if not isinstance(team_data, dict):
+                            self.logger.error(f"team_data is not a dict: {team_data}")
+                            continue
+                            
+                        self.logger.debug(f"Processing team data: {team_data.keys() if isinstance(team_data, dict) else 'Not a dict'}")
+                        
+                        # Check if team exists and is a dict
+                        team = team_data.get('team', {})
+                        if not isinstance(team, dict):
+                            self.logger.error(f"team is not a dict: {team}")
+                            continue
+                            
+                        self.logger.debug(f"Team info: {team}")
+                        
+                        # Map team ID to team code for future use
+                        team_id = team.get('id')
+                        team_code = team.get('abbrev')
+                        self.logger.debug(f"Team ID: {team_id}, Team Code: {team_code}")
+                        
+                        if team_id and team_code:
+                            self.team_id_to_code[team_id] = team_code
+                            self.team_code_to_id[team_code] = team_id
+                        
+                        # Create team object in the format expected by the sync manager
+                        team_name = team.get('name', '')
+                        team_obj = {
+                            'id': team.get('id'),
+                            'name': team_name,
+                            'abbreviation': team.get('abbrev'),
+                            'teamName': team_name.split()[-1] if team_name else '',
+                            'locationName': ' '.join(team_name.split()[:-1]) if team_name else '',
+                            'division': {
+                                'id': division.get('id'),
+                                'name': division.get('name')
+                            },
+                            'conference': {
+                                'id': division.get('conference', {}).get('id') if isinstance(division.get('conference'), dict) else None,
+                                'name': division.get('conference', {}).get('name') if isinstance(division.get('conference'), dict) else None
+                            },
+                            'active': True  # Assuming all teams in standings are active
+                        }
+                        teams.append(team_obj)
+            else:
+                self.logger.error(f"Unexpected API response format: {data}")
+                
+                # If we can't get teams from the API, use a hardcoded list of teams
+                self.logger.warning("Using hardcoded team list as fallback")
+                hardcoded_teams = [
+                    {'id': 1, 'abbrev': 'NJD', 'name': 'New Jersey Devils'},
+                    {'id': 2, 'abbrev': 'NYI', 'name': 'New York Islanders'},
+                    {'id': 3, 'abbrev': 'NYR', 'name': 'New York Rangers'},
+                    {'id': 4, 'abbrev': 'PHI', 'name': 'Philadelphia Flyers'},
+                    {'id': 5, 'abbrev': 'PIT', 'name': 'Pittsburgh Penguins'},
+                    {'id': 6, 'abbrev': 'BOS', 'name': 'Boston Bruins'},
+                    {'id': 7, 'abbrev': 'BUF', 'name': 'Buffalo Sabres'},
+                    {'id': 8, 'abbrev': 'MTL', 'name': 'Montreal Canadiens'},
+                    {'id': 9, 'abbrev': 'OTT', 'name': 'Ottawa Senators'},
+                    {'id': 10, 'abbrev': 'TOR', 'name': 'Toronto Maple Leafs'},
+                    {'id': 12, 'abbrev': 'CAR', 'name': 'Carolina Hurricanes'},
+                    {'id': 13, 'abbrev': 'FLA', 'name': 'Florida Panthers'},
+                    {'id': 14, 'abbrev': 'TBL', 'name': 'Tampa Bay Lightning'},
+                    {'id': 15, 'abbrev': 'WSH', 'name': 'Washington Capitals'},
+                    {'id': 16, 'abbrev': 'CHI', 'name': 'Chicago Blackhawks'},
+                    {'id': 17, 'abbrev': 'DET', 'name': 'Detroit Red Wings'},
+                    {'id': 18, 'abbrev': 'NSH', 'name': 'Nashville Predators'},
+                    {'id': 19, 'abbrev': 'STL', 'name': 'St. Louis Blues'},
+                    {'id': 20, 'abbrev': 'CGY', 'name': 'Calgary Flames'},
+                    {'id': 21, 'abbrev': 'COL', 'name': 'Colorado Avalanche'},
+                    {'id': 22, 'abbrev': 'EDM', 'name': 'Edmonton Oilers'},
+                    {'id': 23, 'abbrev': 'VAN', 'name': 'Vancouver Canucks'},
+                    {'id': 24, 'abbrev': 'ANA', 'name': 'Anaheim Ducks'},
+                    {'id': 25, 'abbrev': 'DAL', 'name': 'Dallas Stars'},
+                    {'id': 26, 'abbrev': 'LAK', 'name': 'Los Angeles Kings'},
+                    {'id': 28, 'abbrev': 'SJS', 'name': 'San Jose Sharks'},
+                    {'id': 29, 'abbrev': 'CBJ', 'name': 'Columbus Blue Jackets'},
+                    {'id': 30, 'abbrev': 'MIN', 'name': 'Minnesota Wild'},
+                    {'id': 52, 'abbrev': 'WPG', 'name': 'Winnipeg Jets'},
+                    {'id': 53, 'abbrev': 'ARI', 'name': 'Arizona Coyotes'},
+                    {'id': 54, 'abbrev': 'VGK', 'name': 'Vegas Golden Knights'},
+                    {'id': 55, 'abbrev': 'SEA', 'name': 'Seattle Kraken'},
+                    {'id': 56, 'abbrev': 'UTA', 'name': 'Utah Hockey Club'}
+                ]
+                
+                for team in hardcoded_teams:
+                    team_id = team['id']
+                    team_code = team['abbrev']
+                    team_name = team['name']
                     
                     # Map team ID to team code for future use
-                    team_id = team.get('id')
-                    team_code = team.get('abbrev')
-                    if team_id and team_code:
-                        self.team_id_to_code[team_id] = team_code
-                        self.team_code_to_id[team_code] = team_id
+                    self.team_id_to_code[team_id] = team_code
+                    self.team_code_to_id[team_code] = team_id
                     
                     # Create team object in the format expected by the sync manager
                     team_obj = {
-                        'id': team.get('id'),
-                        'name': team.get('name'),
-                        'abbreviation': team.get('abbrev'),
-                        'teamName': team.get('name', '').split()[-1] if team.get('name') else '',
-                        'locationName': ' '.join(team.get('name', '').split()[:-1]) if team.get('name') else '',
+                        'id': team_id,
+                        'name': team_name,
+                        'abbreviation': team_code,
+                        'teamName': team_name.split()[-1],
+                        'locationName': ' '.join(team_name.split()[:-1]),
                         'division': {
-                            'id': division.get('id'),
-                            'name': division.get('name')
+                            'id': None,
+                            'name': None
                         },
                         'conference': {
-                            'id': division.get('conference', {}).get('id'),
-                            'name': division.get('conference', {}).get('name')
+                            'id': None,
+                            'name': None
                         },
-                        'active': True  # Assuming all teams in standings are active
+                        'active': True
                     }
                     teams.append(team_obj)
+        except Exception as e:
+            self.logger.error(f"Error processing teams data: {e}", exc_info=True)
+            # Return empty teams list to avoid further errors
+            return {'teams': []}
         
         return {'teams': teams}
     
