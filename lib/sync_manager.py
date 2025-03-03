@@ -152,6 +152,13 @@ class SyncManager:
                             
                         # Transform data for database with error handling
                         try:
+                            # Extract position safely - This is the key fix:
+                            position = None
+                            if isinstance(player_data.get('primaryPosition'), dict):
+                                position = player_data.get('primaryPosition', {}).get('name')
+                            elif isinstance(player.get('position'), dict):
+                                position = player.get('position', {}).get('name')
+                            
                             player_record = {
                                 'id': player_data.get('id', player_id),
                                 'full_name': player_data.get('fullName', ''),
@@ -160,8 +167,7 @@ class SyncManager:
                                 'primary_number': player_data.get('primaryNumber', player.get('jerseyNumber')),
                                 'birth_date': player_data.get('birthDate'),
                                 'current_team_id': team_id,
-                                'position': (player_data.get('primaryPosition', {}) if isinstance(player_data.get('primaryPosition'), dict) else {}).get('name') or 
-                                           (player.get('position', {}) if isinstance(player.get('position'), dict) else {}).get('name'),
+                                'position': position,  # Use the safely extracted position
                                 'shooter': player_data.get('shootsCatches'),
                                 'height': player_data.get('height', player_data.get('heightInInches')),
                                 'weight': player_data.get('weight', player_data.get('weightInPounds')),
