@@ -23,22 +23,45 @@ class SyncManager:
         # Fetch teams from API
         teams_data = self.api.get_teams()
         
+        # Check if teams_data is a dictionary with 'teams' key (old API format)
+        if isinstance(teams_data, dict) and 'teams' in teams_data:
+            teams_data = teams_data.get('teams', [])
+        
         # Transform data for database
         teams_to_insert = []
         for team in teams_data:
-            team_record = {
-                'id': team['id'],
-                'name': team['name'],
-                'abbreviation': team['abbreviation'],
-                'team_name': team['teamName'],
-                'location_name': team['locationName'],
-                'division_id': team['division']['id'] if 'division' in team else None,
-                'division_name': team['division']['name'] if 'division' in team else None,
-                'conference_id': team['conference']['id'] if 'conference' in team else None,
-                'conference_name': team['conference']['name'] if 'conference' in team else None,
-                'active': team['active']
-            }
-            teams_to_insert.append(team_record)
+            # Ensure team is a dictionary
+            if not isinstance(team, dict):
+                self.logger.error(f"Team data is not a dictionary: {team}")
+                continue
+                
+            # Log team data for debugging
+            self.logger.debug(f"Processing team: {team}")
+            
+            # Extract team data with proper error handling
+            try:
+                team_record = {
+                    'id': team.get('id'),
+                    'name': team.get('name', ''),
+                    'abbreviation': team.get('abbreviation', ''),
+                    'team_name': team.get('teamName', ''),
+                    'location_name': team.get('locationName', ''),
+                    'division_id': team.get('division', {}).get('id') if isinstance(team.get('division'), dict) else None,
+                    'division_name': team.get('division', {}).get('name') if isinstance(team.get('division'), dict) else None,
+                    'conference_id': team.get('conference', {}).get('id') if isinstance(team.get('conference'), dict) else None,
+                    'conference_name': team.get('conference', {}).get('name') if isinstance(team.get('conference'), dict) else None,
+                    'active': team.get('active', True)
+                }
+                
+                # Validate required fields
+                if team_record['id'] is None:
+                    self.logger.error(f"Team is missing required 'id' field: {team}")
+                    continue
+                    
+                teams_to_insert.append(team_record)
+            except Exception as e:
+                self.logger.error(f"Error processing team data: {e}", exc_info=True)
+                continue
         
         # Insert or update in database
         if teams_to_insert:
@@ -54,37 +77,114 @@ class SyncManager:
         # Get all teams
         teams_data = self.api.get_teams()
         
+        # Check if teams_data is a dictionary with 'teams' key (old API format)
+        if isinstance(teams_data, dict) and 'teams' in teams_data:
+            teams_data = teams_data.get('teams', [])
+        
         players_to_insert = []
         
         # For each team, get roster and player details
         for team in tqdm(teams_data, desc="Fetching team rosters"):
-            team_id = team['id']
-            roster = self.api.get_team_roster(team_id)
-            
-            for player in roster:
-                player_id = player['person']['id']
+            # Ensure team is a dictionary
+            if not isinstance(team, dict):
+                self.logger.error(f"Team data is not a dictionary: {team}")
+                continue
                 
-                # Get detailed player info
-                player_data = self.api.get_player(player_id)
+            # Get team ID with error handling
+            try:
+                team_id = team.get('id')
+                if team_id is None:
+                    self.logger.error(f"Team is missing required 'id' field: {team}")
+                    continue
+                    
+                # Get roster for the team
+                roster_data = self.api.get_team_roster(team_id)
                 
-                # Transform data for database
-                player_record = {
-                    'id': player_data['id'],
-                    'full_name': player_data['fullName'],
-                    'first_name': player_data['firstName'],
-                    'last_name': player_data['lastName'],
-                    'primary_number': player_data.get('primaryNumber'),
-                    'birth_date': player_data.get('birthDate'),
-                    'current_team_id': team_id,
-                    'position': player_data.get('primaryPosition', {}).get('name'),
-                    'shooter': player_data.get('shootsCatches'),
-                    'height': player_data.get('height'),
-                    'weight': player_data.get('weight'),
-                    'nationality': player_data.get('nationality'),
-                    'active': player_data.get('active', True),
-                    'rookie': player_data.get('rookie', False)
-                }
-                players_to_insert.append(player_record)
+                # Check if roster_data is in the expected format
+                if isinstance(roster_data, dict) and 'roster' in roster_data:
+                    roster = roster_data.get('roster', [])
+                elif isinstance(roster_data, dict) and ('forwards' in roster_data or 'defensemen' in roster_data or 'goalies' in roster_data):
+                    # New API format with player types
+                    roster = []
+                    for player_type in ['forwards', 'defensemen', 'goalies']:
+                        if player_type in roster_data:
+                            for player in roster_data.get(player_type, []):
+                                # Convert to the expected format
+                                roster.append({
+                                    'person': {
+                                        'id': player.get('id'),
+                                        'fullName': f"{player.get('firstName', {}).get('default', '')} {player.get('lastName', {}).get('default', '')}"
+                                    },
+                                    'jerseyNumber': player.get('sweaterNumber'),
+                                    'position': {
+                                        'code': player.get('positionCode'),
+                                        'name': player.get('position', player.get('positionCode', ''))
+                                    }
+                                })
+                else:
+                    roster = []
+                
+                # Process each player in the roster
+                for player in roster:
+                    # Ensure player is a dictionary
+                    if not isinstance(player, dict):
+                        self.logger.error(f"Player data is not a dictionary: {player}")
+                        continue
+                        
+                    # Get player ID with error handling
+                    try:
+                        if 'person' in player and isinstance(player['person'], dict):
+                            player_id = player['person'].get('id')
+                        else:
+                            player_id = player.get('id')
+                            
+                        if player_id is None:
+                            self.logger.error(f"Player is missing required 'id' field: {player}")
+                            continue
+                            
+                        # Get detailed player info
+                        player_data = self.api.get_player(player_id)
+                        
+                        # Ensure player_data is a dictionary
+                        if not isinstance(player_data, dict):
+                            self.logger.error(f"Player data is not a dictionary: {player_data}")
+                            continue
+                            
+                        # Transform data for database with error handling
+                        try:
+                            player_record = {
+                                'id': player_data.get('id', player_id),
+                                'full_name': player_data.get('fullName', ''),
+                                'first_name': player_data.get('firstName', ''),
+                                'last_name': player_data.get('lastName', ''),
+                                'primary_number': player_data.get('primaryNumber', player.get('jerseyNumber')),
+                                'birth_date': player_data.get('birthDate'),
+                                'current_team_id': team_id,
+                                'position': (player_data.get('primaryPosition', {}) if isinstance(player_data.get('primaryPosition'), dict) else {}).get('name') or 
+                                           (player.get('position', {}) if isinstance(player.get('position'), dict) else {}).get('name'),
+                                'shooter': player_data.get('shootsCatches'),
+                                'height': player_data.get('height', player_data.get('heightInInches')),
+                                'weight': player_data.get('weight', player_data.get('weightInPounds')),
+                                'nationality': player_data.get('nationality', player_data.get('birthCountry')),
+                                'active': player_data.get('active', True),
+                                'rookie': player_data.get('rookie', False)
+                            }
+                            
+                            # Validate required fields
+                            if player_record['id'] is None:
+                                self.logger.error(f"Player record is missing required 'id' field: {player_record}")
+                                continue
+                                
+                            players_to_insert.append(player_record)
+                        except Exception as e:
+                            self.logger.error(f"Error creating player record: {e}", exc_info=True)
+                            continue
+                    except Exception as e:
+                        self.logger.error(f"Error processing player: {e}", exc_info=True)
+                        continue
+            except Exception as e:
+                self.logger.error(f"Error processing team: {e}", exc_info=True)
+                continue
         
         # Insert or update in database
         if players_to_insert:
