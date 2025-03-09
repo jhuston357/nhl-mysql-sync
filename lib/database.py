@@ -226,10 +226,10 @@ class DatabaseManager:
         """Insert or update records in a table."""
         if not data:
             return 0
-            
+        print("insert or update before set fields")    
         # Extract field names from the first record
         fields = list(data[0].keys())
-        
+        print("insert or update after set fields") 
         # Prepare the base INSERT statement
         placeholders = ', '.join(['%s'] * len(fields))
         columns = ', '.join(fields)
