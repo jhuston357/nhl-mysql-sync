@@ -227,13 +227,20 @@ class DatabaseManager:
         if not data:
             return 0
         print("insert or update before set fields")    
+        # Debug logging
+        print("Data type:", type(data))
+        print("First record type:", type(data[0]))
+        print("First record:", data[0])
+        
         # Extract field names from the first record
         fields = list(data[0].keys())
-        print("insert or update after set fields") 
+        print("Fields:", fields)
+        
         # Prepare the base INSERT statement
         placeholders = ', '.join(['%s'] * len(fields))
         columns = ', '.join(fields)
-        print("IOU1") 
+        print("Columns:", columns)
+        print("IOU1")
         # Prepare the ON DUPLICATE KEY UPDATE part
         update_stmt = ', '.join([f"{field} = VALUES({field})" for field in fields 
                                 if field not in key_fields])
@@ -249,9 +256,27 @@ class DatabaseManager:
         values = []
         for record in data:
             print("IOUforloop1")
-            # Convert any None values to NULL and ensure proper type conversion
-            row = tuple(record[field] if field in record else None for field in fields)
-            values.append(row)
+            # Convert values to basic Python types that MySQL connector can handle
+            row = []
+            for field in fields:
+                value = record.get(field)
+                # Handle name fields that contain dictionaries
+                if isinstance(value, dict) and 'default' in value:
+                    value = value['default']
+                # Handle special case where full_name is two dictionaries
+                elif field == 'full_name' and isinstance(value, str) and "} {" in value:
+                    # Split the string and extract first and last names
+                    try:
+                        first_part, last_part = value.split("} {")
+                        first_dict = eval(first_part + "}")  # Safely reconstruct the dict
+                        last_dict = eval("{" + last_part)    # Safely reconstruct the dict
+                        value = f"{first_dict['default']} {last_dict['default']}"
+                    except:
+                        # If parsing fails, leave as is
+                        pass
+                row.append(value)
+            values.append(tuple(row))
+            print("Record values:", row)
         print("IOU4")
         # Execute the query
         connection = self.get_connection()
@@ -265,9 +290,17 @@ class DatabaseManager:
             return cursor.rowcount
         except Error as e:
             print("IOU8")
-            self.logger.error(f"Error in insert_or_update: {e}")
-            connection.rollback()
-            raise
+            if "foreign key constraint fails" in str(e).lower():
+                # Extract the missing team ID from the data
+                team_ids = set(record.get('current_team_id') for record in data if record.get('current_team_id'))
+                error_msg = f"Error: Cannot insert players because team(s) {team_ids} do not exist in the teams table. Please ensure teams are synchronized first."
+                self.logger.error(error_msg)
+                connection.rollback()
+                raise Error(error_msg)
+            else:
+                self.logger.error(f"Error in insert_or_update: {e}")
+                connection.rollback()
+                raise
         finally:
             print("IOU9")
             if connection.is_connected():
