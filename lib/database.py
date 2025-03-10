@@ -260,9 +260,20 @@ class DatabaseManager:
             row = []
             for field in fields:
                 value = record.get(field)
-                # Convert any complex types to strings or basic types
-                if isinstance(value, (dict, list, tuple, set)):
-                    value = str(value)
+                # Handle name fields that contain dictionaries
+                if isinstance(value, dict) and 'default' in value:
+                    value = value['default']
+                # Handle special case where full_name is two dictionaries
+                elif field == 'full_name' and isinstance(value, str) and "} {" in value:
+                    # Split the string and extract first and last names
+                    try:
+                        first_part, last_part = value.split("} {")
+                        first_dict = eval(first_part + "}")  # Safely reconstruct the dict
+                        last_dict = eval("{" + last_part)    # Safely reconstruct the dict
+                        value = f"{first_dict['default']} {last_dict['default']}"
+                    except:
+                        # If parsing fails, leave as is
+                        pass
                 row.append(value)
             values.append(tuple(row))
             print("Record values:", row)
@@ -279,9 +290,17 @@ class DatabaseManager:
             return cursor.rowcount
         except Error as e:
             print("IOU8")
-            self.logger.error(f"Error in insert_or_update: {e}")
-            connection.rollback()
-            raise
+            if "foreign key constraint fails" in str(e).lower():
+                # Extract the missing team ID from the data
+                team_ids = set(record.get('current_team_id') for record in data if record.get('current_team_id'))
+                error_msg = f"Error: Cannot insert players because team(s) {team_ids} do not exist in the teams table. Please ensure teams are synchronized first."
+                self.logger.error(error_msg)
+                connection.rollback()
+                raise Error(error_msg)
+            else:
+                self.logger.error(f"Error in insert_or_update: {e}")
+                connection.rollback()
+                raise
         finally:
             print("IOU9")
             if connection.is_connected():
