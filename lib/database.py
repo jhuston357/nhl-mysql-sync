@@ -64,13 +64,20 @@ class DatabaseManager:
         """Initialize the database manager with configuration."""
         self.db_config = db_config
         self.logger = logging.getLogger('nhl_sync.database')
+        # Ensure logger is configured with at least INFO level
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
     
     def get_connection(self):
         """Create and return a database connection."""
         try:
             connection = mysql.connector.connect(**self.db_config)
             if connection.is_connected():
-                self.logger.debug("Connected to MySQL database")
+                self.logger.info("Connected to MySQL database")
                 return connection
         except Error as e:
             self.logger.error(f"Error connecting to MySQL database: {e}")
