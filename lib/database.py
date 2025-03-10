@@ -249,7 +249,8 @@ class DatabaseManager:
         values = []
         for record in data:
             print("IOUforloop1")
-            row = [record.get(field) for field in fields]
+            # Convert any None values to NULL and ensure proper type conversion
+            row = tuple(record[field] if field in record else None for field in fields)
             values.append(row)
         print("IOU4")
         # Execute the query
