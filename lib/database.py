@@ -227,13 +227,20 @@ class DatabaseManager:
         if not data:
             return 0
         print("insert or update before set fields")    
+        # Debug logging
+        print("Data type:", type(data))
+        print("First record type:", type(data[0]))
+        print("First record:", data[0])
+        
         # Extract field names from the first record
         fields = list(data[0].keys())
-        print("insert or update after set fields") 
+        print("Fields:", fields)
+        
         # Prepare the base INSERT statement
         placeholders = ', '.join(['%s'] * len(fields))
         columns = ', '.join(fields)
-        print("IOU1") 
+        print("Columns:", columns)
+        print("IOU1")
         # Prepare the ON DUPLICATE KEY UPDATE part
         update_stmt = ', '.join([f"{field} = VALUES({field})" for field in fields 
                                 if field not in key_fields])
@@ -249,9 +256,16 @@ class DatabaseManager:
         values = []
         for record in data:
             print("IOUforloop1")
-            # Convert any None values to NULL and ensure proper type conversion
-            row = tuple(record[field] if field in record else None for field in fields)
-            values.append(row)
+            # Convert values to basic Python types that MySQL connector can handle
+            row = []
+            for field in fields:
+                value = record.get(field)
+                # Convert any complex types to strings or basic types
+                if isinstance(value, (dict, list, tuple, set)):
+                    value = str(value)
+                row.append(value)
+            values.append(tuple(row))
+            print("Record values:", row)
         print("IOU4")
         # Execute the query
         connection = self.get_connection()
