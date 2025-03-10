@@ -233,37 +233,43 @@ class DatabaseManager:
         # Prepare the base INSERT statement
         placeholders = ', '.join(['%s'] * len(fields))
         columns = ', '.join(fields)
-        
+        print("IOU1") 
         # Prepare the ON DUPLICATE KEY UPDATE part
         update_stmt = ', '.join([f"{field} = VALUES({field})" for field in fields 
                                 if field not in key_fields])
-        
+        print("IOU2")
         # Construct the full query
         query = f"""
             INSERT INTO {table} ({columns}) 
             VALUES ({placeholders})
             ON DUPLICATE KEY UPDATE {update_stmt}
         """
-        
+        print("IOU3")
         # Prepare the values
         values = []
         for record in data:
+            print("IOUforloop1")
             row = [record.get(field) for field in fields]
             values.append(row)
-        
+        print("IOU4")
         # Execute the query
         connection = self.get_connection()
         cursor = connection.cursor()
-        
+        print("IOU5")
         try:
+            print("IOU6")
             cursor.executemany(query, values)
             connection.commit()
+            print("IOU7")
             return cursor.rowcount
         except Error as e:
+            print("IOU8")
             self.logger.error(f"Error in insert_or_update: {e}")
             connection.rollback()
             raise
         finally:
+            print("IOU9")
             if connection.is_connected():
+                print("IOU10")
                 cursor.close()
                 connection.close()
