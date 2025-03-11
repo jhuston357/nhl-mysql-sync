@@ -44,6 +44,11 @@
                         {% endif %}
                     </div>
                     
+                    <div class="mb-3 form-check">
+                        {{ form.all_seasons(class="form-check-input") }}
+                        <label class="form-check-label" for="all_seasons">{{ form.all_seasons.label }}</label>
+                    </div>
+                    
                     <div class="d-grid gap-2">
                         {{ form.submit(class="btn btn-primary", id="start-sync-btn") }}
                     </div>
@@ -145,6 +150,18 @@
     document.addEventListener('DOMContentLoaded', function() {
         const startSyncBtn = document.getElementById('start-sync-btn');
         const cancelSyncBtn = document.getElementById('cancel-sync-btn');
+        const allSeasonsCheckbox = document.getElementById('all_seasons');
+        const seasonInput = document.getElementById('season');
+        
+        // Handle all seasons checkbox
+        if (allSeasonsCheckbox && seasonInput) {
+            allSeasonsCheckbox.addEventListener('change', function() {
+                seasonInput.disabled = this.checked;
+                if (this.checked) {
+                    seasonInput.value = '';
+                }
+            });
+        }
         
         // Load initial sync status
         fetch('/api/sync/status')
