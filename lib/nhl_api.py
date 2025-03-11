@@ -357,15 +357,31 @@ class NHLApiClient:
                 data = self._make_request(f'club-schedule-season/{team_code}/now')
         else:
             if season:
-                # For league-wide schedule, we'll use the date-based endpoint
-                # since there's no direct season endpoint
+                # For league-wide schedule, we need to fetch multiple dates
+                # to get all games for the season
                 current_year = int(season[:4])
                 next_year = int(season[4:])
                 
-                # Use a date in the middle of the season (January 1st)
-                date = f"{next_year}-01-01"
-                self.logger.info(f"Fetching schedule for date {date} (season {season})")
-                data = self._make_request(f'schedule/{date}')
+                # NHL season typically runs from October to April
+                # We'll fetch data for each month of the season
+                months = [
+                    f"{current_year}-10", f"{current_year}-11", f"{current_year}-12",
+                    f"{next_year}-01", f"{next_year}-02", f"{next_year}-03", f"{next_year}-04"
+                ]
+                
+                self.logger.info(f"Fetching schedule for season {season} (multiple months)")
+                
+                # Initialize with empty games array
+                data = {"games": []}
+                
+                # Fetch data for each month
+                for month in months:
+                    self.logger.info(f"Fetching games for month {month}")
+                    month_data = self._make_request(f'schedule/month/{month}')
+                    if 'games' in month_data:
+                        data['games'].extend(month_data['games'])
+                
+                self.logger.info(f"Found {len(data['games'])} games for season {season}")
             else:
                 self.logger.info("Fetching current schedule")
                 data = self._make_request('schedule/now')
