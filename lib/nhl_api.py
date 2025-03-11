@@ -14,6 +14,13 @@ class NHLApiClient:
         """Initialize the NHL API client with the base URL."""
         self.base_url = base_url
         self.logger = logging.getLogger('nhl_sync.api')
+        # Ensure logger is configured
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
         
         # Map team IDs to team codes for the new API
         self.team_id_to_code = {}

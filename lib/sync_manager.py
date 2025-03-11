@@ -15,6 +15,13 @@ class SyncManager:
         self.db = db_manager
         self.api = api_client
         self.logger = logging.getLogger('nhl_sync.sync')
+        # Ensure logger is configured
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
     
     def sync_teams(self):
         """Synchronize teams data."""

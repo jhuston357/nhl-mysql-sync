@@ -24,6 +24,13 @@ scheduler.start()
 
 # Initialize logger
 logger = logging.getLogger('nhl_sync.web')
+# Ensure logger is configured
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 # Import routes after app is created to avoid circular imports
 from web import routes

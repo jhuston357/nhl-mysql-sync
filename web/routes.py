@@ -44,6 +44,10 @@ def init_components():
     original_logger = sync_manager.logger
     
     class SocketLogger:
+        def debug(self, message):
+            original_logger.info(message)  # Use info level instead of debug
+            socketio.emit('log_message', {'level': 'debug', 'message': message})
+            
         def info(self, message):
             original_logger.info(message)
             socketio.emit('log_message', {'level': 'info', 'message': message})
