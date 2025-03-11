@@ -363,23 +363,55 @@ class NHLApiClient:
                 next_year = int(season[4:])
                 
                 # NHL season typically runs from October to April
-                # We'll fetch data for each month of the season
-                months = [
-                    f"{current_year}-10", f"{current_year}-11", f"{current_year}-12",
-                    f"{next_year}-01", f"{next_year}-02", f"{next_year}-03", f"{next_year}-04"
-                ]
+                # We'll fetch data for specific dates throughout the season
+                # to ensure we get complete coverage
                 
-                self.logger.info(f"Fetching schedule for season {season} (multiple months)")
+                # Generate a list of dates to check (one per week)
+                import datetime
+                
+                # Start date: October 1st of the first year
+                start_date = datetime.date(current_year, 10, 1)
+                # End date: April 30th of the next year
+                end_date = datetime.date(next_year, 4, 30)
+                
+                # Generate dates at weekly intervals
+                dates = []
+                current_date = start_date
+                while current_date <= end_date:
+                    dates.append(current_date.strftime("%Y-%m-%d"))
+                    current_date += datetime.timedelta(days=7)
+                
+                self.logger.info(f"Fetching schedule for season {season} using {len(dates)} weekly dates")
                 
                 # Initialize with empty games array
                 data = {"games": []}
                 
-                # Fetch data for each month
-                for month in months:
-                    self.logger.info(f"Fetching games for month {month}")
-                    month_data = self._make_request(f'schedule/month/{month}')
-                    if 'games' in month_data:
-                        data['games'].extend(month_data['games'])
+                # Track game IDs to avoid duplicates
+                game_ids = set()
+                
+                # Fetch data for each date
+                for date in dates:
+                    try:
+                        self.logger.info(f"Fetching games for date {date}")
+                        
+                        # Use the date endpoint
+                        date_data = self._make_request(f'schedule/{date}')
+                        
+                        # If we have games, add them to our collection (avoiding duplicates)
+                        if 'games' in date_data and date_data['games']:
+                            new_games = 0
+                            for game in date_data['games']:
+                                if 'id' in game and game['id'] not in game_ids:
+                                    game_ids.add(game['id'])
+                                    data['games'].append(game)
+                                    new_games += 1
+                            
+                            self.logger.info(f"Found {new_games} new games for {date}")
+                        else:
+                            self.logger.info(f"No games found for {date}")
+                    except Exception as e:
+                        self.logger.error(f"Error fetching games for {date}: {e}")
+                        continue
                 
                 self.logger.info(f"Found {len(data['games'])} games for season {season}")
             else:
