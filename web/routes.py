@@ -120,14 +120,16 @@ def sync_page():
     
     if request.method == 'POST' and form.validate_on_submit():
         data_type = form.data_type.data
-        season = form.season.data if form.season.data else None
+        all_seasons = form.all_seasons.data
+        season = form.season.data if form.season.data and not all_seasons else None
         
         # Start sync in background thread
-        thread = threading.Thread(target=run_sync, args=(data_type, season))
+        thread = threading.Thread(target=run_sync, args=(data_type, season, all_seasons))
         thread.daemon = True
         thread.start()
         
-        flash(f'Started synchronization of {data_type} data', 'success')
+        season_msg = "all seasons" if all_seasons else f"season {season if season else 'current'}"
+        flash(f'Started synchronization of {data_type} data for {season_msg}', 'success')
         return redirect(url_for('sync_page'))
     
     return render_template('sync.html', form=form, sync_status=sync_status)
@@ -181,7 +183,7 @@ def init_database():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error initializing database: {str(e)}'})
 
-def run_sync(data_type, season=None):
+def run_sync(data_type, season=None, all_seasons=False):
     """Run a synchronization operation in the background."""
     global sync_status
     
@@ -198,10 +200,20 @@ def run_sync(data_type, season=None):
     socketio.emit('sync_update', sync_status)
     
     try:
-        # Determine season to use if not provided
-        if not season:
+        # Generate list of seasons to process
+        seasons_to_process = []
+        
+        if all_seasons:
+            # Process seasons from 2010-2011 to present
             current_year = datetime.now().year
-            season = str(current_year - 1) + str(current_year)
+            for year in range(2010, current_year):
+                seasons_to_process.append(str(year) + str(year + 1))
+        else:
+            # Determine single season to use if not provided
+            if not season:
+                current_year = datetime.now().year
+                season = str(current_year - 1) + str(current_year)
+            seasons_to_process.append(season)
         
         # Override the database manager's insert_or_update method to track progress
         original_insert_or_update = db_manager.insert_or_update
@@ -242,14 +254,20 @@ def run_sync(data_type, season=None):
             sync_manager.sync_players()
             
         if data_type == 'games' or data_type == 'all':
-            sync_status['current_task'] = 'Synchronizing games'
-            socketio.emit('sync_update', sync_status)
-            sync_manager.sync_games(season)
+            for season_to_process in seasons_to_process:
+                if not sync_status['is_running']:
+                    break  # Allow cancellation between seasons
+                sync_status['current_task'] = f'Synchronizing games for season {season_to_process}'
+                socketio.emit('sync_update', sync_status)
+                sync_manager.sync_games(season_to_process)
             
         if data_type == 'stats' or data_type == 'all':
-            sync_status['current_task'] = 'Synchronizing stats'
-            socketio.emit('sync_update', sync_status)
-            sync_manager.sync_stats(season)
+            for season_to_process in seasons_to_process:
+                if not sync_status['is_running']:
+                    break  # Allow cancellation between seasons
+                sync_status['current_task'] = f'Synchronizing stats for season {season_to_process}'
+                socketio.emit('sync_update', sync_status)
+                sync_manager.sync_stats(season_to_process)
         
         # Restore the original method
         db_manager.insert_or_update = original_insert_or_update
