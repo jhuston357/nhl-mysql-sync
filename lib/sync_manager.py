@@ -213,25 +213,55 @@ class SyncManager:
         # Fetch schedule from API
         schedule_data = self.api.get_schedule(season=season)
         
+        if not schedule_data:
+            self.logger.warning(f"No schedule data returned for season {season}")
+            return
+            
+        self.logger.info(f"Retrieved {len(schedule_data)} date entries from schedule")
+        
         games_to_insert = []
         
         # Process each date in the schedule
         for date_info in schedule_data:
-            for game in date_info.get('games', []):
-                # Transform data for database
-                game_record = {
-                    'id': game['gamePk'],
-                    'season': season,
-                    'game_type': game['gameType'],
-                    'date_time': game['gameDate'],
-                    'away_team_id': game['teams']['away']['team']['id'],
-                    'home_team_id': game['teams']['home']['team']['id'],
-                    'venue': game.get('venue', {}).get('name'),
-                    'status': game['status']['detailedState'],
-                    'away_score': game['teams']['away'].get('score', 0),
-                    'home_score': game['teams']['home'].get('score', 0)
-                }
-                games_to_insert.append(game_record)
+            games_in_date = date_info.get('games', [])
+            self.logger.info(f"Processing {len(games_in_date)} games for date {date_info.get('date', 'unknown')}")
+            
+            for game in games_in_date:
+                try:
+                    # Check for required fields
+                    if 'gamePk' not in game:
+                        self.logger.warning(f"Skipping game without gamePk: {game}")
+                        continue
+                        
+                    if 'teams' not in game or 'away' not in game['teams'] or 'home' not in game['teams']:
+                        self.logger.warning(f"Skipping game {game.get('gamePk')} without team data")
+                        continue
+                        
+                    # Get team IDs
+                    away_team_id = game['teams']['away']['team'].get('id')
+                    home_team_id = game['teams']['home']['team'].get('id')
+                    
+                    if not away_team_id or not home_team_id:
+                        self.logger.warning(f"Skipping game {game.get('gamePk')} with missing team IDs: away={away_team_id}, home={home_team_id}")
+                        continue
+                    
+                    # Transform data for database
+                    game_record = {
+                        'id': game['gamePk'],
+                        'season': season,
+                        'game_type': game.get('gameType', 'R'),  # Default to regular season if missing
+                        'date_time': game.get('gameDate'),
+                        'away_team_id': away_team_id,
+                        'home_team_id': home_team_id,
+                        'venue': game.get('venue', {}).get('name', 'Unknown'),
+                        'status': game.get('status', {}).get('detailedState', 'Unknown'),
+                        'away_score': game['teams']['away'].get('score', 0),
+                        'home_score': game['teams']['home'].get('score', 0)
+                    }
+                    games_to_insert.append(game_record)
+                except Exception as e:
+                    self.logger.error(f"Error processing game: {e}", exc_info=True)
+                    continue
         
         # Insert or update in database
         if games_to_insert:
