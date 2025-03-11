@@ -3,7 +3,7 @@ Forms for the NHL MySQL Sync web interface.
 """
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField, SelectField, SubmitField
+from wtforms import StringField, PasswordField, IntegerField, SelectField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, NumberRange, Optional
 
 class ConfigForm(FlaskForm):
@@ -45,5 +45,7 @@ class SyncForm(FlaskForm):
                            validators=[DataRequired()])
     
     season = StringField('Season (YYYYYYYY format, e.g., 20222023)', validators=[Optional()])
+    
+    all_seasons = BooleanField('Sync All Seasons (from 2010-2011 to present)')
     
     submit = SubmitField('Start Synchronization')
